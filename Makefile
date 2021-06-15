@@ -15,15 +15,59 @@
 # limitations under the License.
 #
 
-version=0
-checkout=0
-app=0
-type=0
-image_base="centos"
-image_tag="7"
-iteration=0
+export SHELL:=/bin/bash
 
-# todo: optimize the code, too much duplicate code now.
+OUTPUT_PATH?=output
+VERSION?=0
+checkout?=0
+app?=0
+type?=0
+IMAGE_BASE?=ubuntu
+IMAGE_TAG?=bionic
+PACKAGE_TYPE?=deb
+PACKAGE_TYPE?=debian
+iteration?=0
+
+APISIX_PACKAGE_NAME?="apisix"
+APISIX_LICENSE?="ASL 2.0"
+
+# 前缀待查明
+LUAROCKS_VERSION?=
+OPENSSL_VERSION?=
+PCRE_VERSION?=
+
+DOCKER_COMMAND?=docker build
+DOCKER_REPOSITORY?=api7/apisix-build-tools
+
+.PHONY: build-base
+build-base:
+	$(DOCKER_COMMAND) -f dockerfiles/Dockerfile.$(PACKAGE_TYPE) \
+	--build-arg IMAGE_TAG="$(IMAGE_TAG)" \
+	--build-arg IMAGE_BASE="$(IMAGE_BASE)" \
+	-t $(DOCKER_REPOSITORY):$(IMAGE_BASE)-$(IMAGE_TAG) .
+
+.PHONY: build-apisix
+build-apisix:
+	-rm -rf $(OUTPUT_PATH)
+	$(DOCKER_COMMAND) -f dockerfiles/Dockerfile.apisix \
+	--build-arg IMAGE_TAG="$(IMAGE_TAG)" \
+	--build-arg IMAGE_BASE="$(IMAGE_BASE)" \
+	--build-arg DOCKER_REPOSITORY=$(DOCKER_REPOSITORY) \
+	-t $(DOCKER_REPOSITORY):apisix-$(IMAGE_BASE)-$(IMAGE_TAG) .
+
+.PHONY: package-apisix
+package-apisix:
+	$(MAKE) build-apisix
+	$(DOCKER_COMMAND) -f dockerfiles/Dockerfile.package \
+	--build-arg IMAGE_TAG="$(IMAGE_TAG)" \
+	--build-arg IMAGE_BASE="$(IMAGE_BASE)" \
+	--build-arg DOCKER_REPOSITORY=$(DOCKER_REPOSITORY) \
+	--build-arg APISIX_VERSION=$(VERSION) \
+	--build-arg APISIX_PACKAGE_NAME=$(APISIX_PACKAGE_NAME) \
+	-t $(DOCKER_REPOSITORY):apisix-packaged-$(IMAGE_BASE)-$(IMAGE_TAG) .
+	docker run -d --rm --name output $(DOCKER_REPOSITORY):apisix-packaged-$(IMAGE_BASE)-$(IMAGE_TAG)
+	docker cp output:/output/ OUTPUT_PATH
+	docker stop output
 
 ### build apisix:
 .PHONY: build-apisix-rpm
@@ -112,13 +156,13 @@ package-apisix-openresty-rpm:
 	rm -rf ${PWD}/build
 
 ifeq ($(filter $(app),apisix dashboard apisix-openresty),)
-$(info  the app's value have to be apisix or dashboard!)
+$(info "the app's value have to be apisix or dashboard!")
 
 else ifeq ($(filter $(type),rpm deb),)
-$(info  the type's value have to be rpm or deb!)
+$(info "the type's value have to be rpm or deb!")
 
 else ifeq ($(version), 0)
-$(info  you have to input a version value!)
+$(info "you have to input a version value!")
 
 else ifeq ($(app)_$(type),apisix-openresty_rpm)
 package: build-apisix-openresty-rpm
