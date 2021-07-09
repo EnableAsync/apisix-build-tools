@@ -1,0 +1,28 @@
+ARG IMAGE_BASE="centos"
+ARG IMAGE_TAG="7"
+
+FROM ${IMAGE_BASE}:${IMAGE_TAG}
+
+ARG ETCD_VERSION="v3.4.14"
+ARG APISIX_VERSION
+
+COPY output/apisix-${APISIX_VERSION}-0.x86_64.rpm /output/apisix-${APISIX_VERSION}-0.x86_64.rpm
+
+# install openresty
+RUN yum -y install wget tar \
+    && yum-config-manager --add-repo https://openresty.org/package/centos/openresty.repo \
+    && yum install -y openresty
+
+# install etcd
+RUN set -x \
+    && wget https://github.com/etcd-io/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
+    && tar -zxvf etcd-${ETCD_VERSION}-linux-amd64.tar.gz
+
+# install apisix
+RUN set -x \
+    && yum -y localinstall /output/apisix-openresty-${APISIX_VERSION}-0.x86_64.rpm
+
+# start etcd and test
+CMD ["sh", "-c", "nohup etcd-${ETCD_VERSION}-linux-amd64/etcd >/tmp/etcd.log 2>&1 & && sleep 10 && apisix init && apisix init_etcd && apisix start"]
+
+EXPOSE 9080 9443
