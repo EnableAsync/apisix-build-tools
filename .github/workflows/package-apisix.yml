@@ -15,13 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: install dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get install -y make ruby ruby-dev rubygems build-essential
           sudo gem install --no-document fpm
           sudo apt-get install -y rpm
 
-      - name: run apisix packaging test
+      - name: Run apisix packaging
         run: |
           make package type=rpm app=apisix version=2.3 checkout=2.3
           make package type=rpm app=apisix version=2.2 checkout=v2.2
@@ -30,9 +30,9 @@ jobs:
 
       - name: install apisix rpm into container
         run: |
-          docker build -t apache/apisix:${BUILD_APISIX_OR_VERSION}-rpm --build-arg APISIX_VERSION=${BUILD_APISIX_OR_VERSION} -f test/Dockerfile.test.apisix.rpm output
+          docker build -t apache/apisix:${BUILD_APISIX_OR_VERSION}-rpm --build-arg APISIX_VERSION=${BUILD_APISIX_OR_VERSION} -f test/apisix/Dockerfile.test.apisix.rpm output
 
-      - name: start apisix and test
+      - name: Start apisix and test
         run: |
           docker run -d --rm --name apisix-${BUILD_APISIX_OR_VERSION}-rpm-test -v $(pwd)/test/apisix/config.yaml:/usr/local/apisix/conf/config.yaml -p 9080:9080 -p 9443:9443 apache/apisix:${BUILD_APISIX_OR_VERSION}-rpm
           sleep 20
